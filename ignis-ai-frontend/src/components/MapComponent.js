@@ -1,175 +1,282 @@
+// src/components/MapComponent.js
 import React, {
   useEffect,
   useRef,
   useState,
   useImperativeHandle,
-  forwardRef,
+  forwardRef
 } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { getWildfireData } from '../api';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+const R_EARTH = 3958.8;
 
-function getBrightnessCategory(brightness) {
-  if (brightness >= 375) return 'Extreme';
-  if (brightness >= 350) return 'Severe';
-  if (brightness >= 325) return 'Moderate';
+// Helpers
+function getBrightnessCategory(b) {
+  if (b >= 375) return 'Extreme';
+  if (b >= 350) return 'Severe';
+  if (b >= 325) return 'Moderate';
   return 'Small';
 }
-
-function getConfidenceCategory(confidenceStr) {
-  const numericValue =
-    typeof confidenceStr === 'string'
-      ? parseFloat(confidenceStr)
-      : Number(confidenceStr);
-
-  if (isNaN(numericValue)) return 'Unknown';
-  if (numericValue >= 0.8) return 'Very High';
-  if (numericValue >= 0.5) return 'High';
-  if (numericValue >= 0.3) return 'Medium';
+function getConfidenceCategory(cStr) {
+  const v = parseFloat(cStr);
+  if (isNaN(v)) return 'Unknown';
+  if (v >= 0.8) return 'Very High';
+  if (v >= 0.5) return 'High';
+  if (v >= 0.3) return 'Medium';
   return 'Low';
 }
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat/2)**2 +
+    Math.cos((lat1*Math.PI)/180) *
+    Math.cos((lat2*Math.PI)/180) *
+    Math.sin(dLon/2)**2;
+  return R_EARTH * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+async function reverseGeocode(lat, lon, token) {
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${token}&limit=1`;
+    const resp = await fetch(url);
+    const json = await resp.json();
+    return json.features?.[0]?.place_name || 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+}
 
-const MapComponent = forwardRef(
-  (
-    { 
-      brightnessFilter, 
-      confidenceFilter, 
-      onFiresUpdated, 
-      setIsFetching,
-      mapStyle // <-- new prop
-    },
-    ref
-  ) => {
-    const mapContainerRef = useRef(null);
-    const [map, setMap] = useState(null);
-    const [wildfires, setWildfires] = useState([]);
+const MapComponent = forwardRef(({
+  brightnessFilter,
+  confidenceFilter,
+  onFiresUpdated,
+  setIsFetching,
+  mapStyle,
+  userLocation,
+  range,
+  onNearbyFiresUpdate
+}, ref) => {
+  const mapContainerRef = useRef();
+  const mapRef = useRef();
+  const clickHandlerRef = useRef();
+  const [wildfires, setWildfires] = useState([]);
 
-    const fetchWildfires = async () => {
-      try {
-        setIsFetching(true);
-        const response = await getWildfireData();
-        const data = response.data.data || [];
-        setWildfires(data);
-        setIsFetching(false);
+  // fetch + cache
+  const fetchWildfires = async () => {
+    setIsFetching(true);
+    try {
+      const { data } = await getWildfireData();
+      const arr = data.data || [];
+      setWildfires(arr);
+      onFiresUpdated?.(arr.length);
+      updateWildfireSource(arr);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+  useImperativeHandle(ref, () => ({ refreshWildfires: fetchWildfires }), []);
 
-        if (onFiresUpdated) {
-          onFiresUpdated(data.length);
+  // update wildfire layer
+  const updateWildfireSource = (dataArray = wildfires) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const src = map.getSource('wildfires-source');
+    if (!src) return;
+    const filtered = dataArray.filter(f => {
+      const b = getBrightnessCategory(f.brightness);
+      const c = getConfidenceCategory(f.confidence);
+      return (!brightnessFilter || brightnessFilter === b)
+          && (!confidenceFilter || confidenceFilter === c);
+    });
+    onFiresUpdated?.(filtered.length);
+    src.setData({
+      type: 'FeatureCollection',
+      features: filtered.map(f => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [f.longitude, f.latitude] },
+        properties: {
+          brightnessCat: getBrightnessCategory(f.brightness),
+          confidenceCat: getConfidenceCategory(f.confidence),
+          timestamp: f.timestamp
         }
-      } catch (error) {
-        console.error('Error fetching wildfire data:', error);
-        setIsFetching(false);
+      }))
+    });
+  };
+
+  // update user marker
+  const updateUserSource = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const src = map.getSource('user-source');
+    if (!src) return;
+    if (!userLocation) {
+      src.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+    src.setData({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [userLocation.lng, userLocation.lat] },
+        properties: {}
+      }]
+    });
+    const z = map.getZoom();
+    map.setCenter([userLocation.lng, userLocation.lat]);
+    map.setZoom(z);
+  };
+
+  // set up layers + click handler
+  const setupLayers = () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Wildfire layer
+    if (map.getLayer('wildfires-layer')) map.removeLayer('wildfires-layer');
+    if (map.getSource('wildfires-source')) map.removeSource('wildfires-source');
+    map.addSource('wildfires-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({
+      id: 'wildfires-layer',
+      type: 'circle',
+      source: 'wildfires-source',
+      paint: {
+        'circle-radius': 4,
+        'circle-color': '#FF4500',
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#fff'
       }
-    };
-
-    useImperativeHandle(ref, () => ({
-      refreshWildfires: () => {
-        fetchWildfires();
-      },
-    }));
-
-    // 1) Create map once
-    useEffect(() => {
-      const mapInstance = new mapboxgl.Map({
-        container: mapContainerRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12', // Initial style
-        center: [-118.2437, 34.0522],
-        zoom: 6,
-      });
-      mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      setMap(mapInstance);
-
-      return () => mapInstance.remove();
-    }, []);
-
-    // 2) Fetch data once map is ready
-    useEffect(() => {
-      if (map) {
-        fetchWildfires();
-      }
-    }, [map]);
-
-    // 3) If mapStyle changes, update it
-    useEffect(() => {
-      if (map && mapStyle) {
-        map.setStyle(mapStyle);
-      }
-    }, [map, mapStyle]);
-
-    // 4) Redraw markers whenever wildfires or filters change
-    useEffect(() => {
-      if (!map) return;
-
-      // Clear existing markers
-      const markers = document.getElementsByClassName('wildfire-marker');
-      while (markers.length > 0) {
-        markers[0].parentNode.removeChild(markers[0]);
-      }
-
-      // Filter data
-      const filtered = wildfires.filter((fire) => {
-        const bCat = getBrightnessCategory(fire.brightness);
-        const cCat = getConfidenceCategory(fire.confidence);
-
-        let passB = true;
-        let passC = true;
-
-        if (brightnessFilter && brightnessFilter !== bCat) {
-          passB = false;
-        }
-        if (confidenceFilter && confidenceFilter !== cCat) {
-          passC = false;
-        }
-        return passB && passC;
-      });
-
-      if (onFiresUpdated) {
-        onFiresUpdated(filtered.length);
-      }
-
-      // Add markers
-      filtered.forEach((fire) => {
-        const el = document.createElement('div');
-        el.className = 'wildfire-marker';
-
-        // Dynamic emoji
-        if (fire.brightness >= 375) el.innerHTML = '🔥🔥🔥';
-        else if (fire.brightness >= 350) el.innerHTML = '🔥🔥';
-        else el.innerHTML = '🔥';
-
-        const confidenceCat = getConfidenceCategory(fire.confidence);
-        const brightnessCat = getBrightnessCategory(fire.brightness);
-        const timeStr = fire.timestamp
-          ? new Date(fire.timestamp).toLocaleString()
-          : 'Unknown';
-
-        const popupHTML = `
+    });
+    // Click handler
+    if (clickHandlerRef.current) {
+      map.off('click','wildfires-layer', clickHandlerRef.current);
+    }
+    clickHandlerRef.current = (e) => {
+      const f = e.features[0];
+      if (!f) return;
+      const { brightnessCat, confidenceCat, timestamp } = f.properties;
+      const coords = f.geometry.coordinates;
+      const timeStr = timestamp ? new Date(timestamp).toLocaleString() : 'Unknown';
+      new mapboxgl.Popup()
+        .setLngLat(coords)
+        .setHTML(`
           <div class="wildfire-popup">
             <h4>${brightnessCat} Fire</h4>
             <p><strong>Confidence:</strong> ${confidenceCat}</p>
             <p><strong>Detected at:</strong> ${timeStr}</p>
-          </div>
-        `;
+          </div>`)
+        .addTo(map);
+    };
+    map.on('click','wildfires-layer', clickHandlerRef.current);
 
-        new mapboxgl.Marker(el)
-          .setLngLat([fire.longitude, fire.latitude])
-          .setPopup(new mapboxgl.Popup().setHTML(popupHTML))
-          .addTo(map);
-      });
-    }, [map, wildfires, brightnessFilter, confidenceFilter, onFiresUpdated]);
+    // User layer
+    if (map.getLayer('user-layer')) map.removeLayer('user-layer');
+    if (map.getSource('user-source')) map.removeSource('user-source');
+    map.addSource('user-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({
+      id: 'user-layer',
+      type: 'circle',
+      source: 'user-source',
+      paint: {
+        'circle-radius': 6,
+        'circle-color': '#1E90FF',
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#fff'
+      }
+    });
+  };
 
-    return (
-      <div
-        ref={mapContainerRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-        }}
-      />
-    );
-  }
-);
+  // 1) initialize map
+  useEffect(() => {
+    const m = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: mapStyle,
+      center: [-98, 38],
+      zoom: 4,
+      maxBounds: [[-130,22],[-66,50]]
+    });
+    m.addControl(new mapboxgl.NavigationControl());
+    mapRef.current = m;
+
+    m.on('load', () => {
+      setupLayers();
+      fetchWildfires();
+      updateWildfireSource();
+      updateUserSource();
+    });
+
+    return () => m.remove();
+  }, []);
+
+  // 2) on style change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setStyle(mapStyle);
+    map.once('styledata', () => {
+      setupLayers();
+      updateWildfireSource();
+      updateUserSource();
+    });
+  }, [mapStyle]);
+
+  // 3) redraw on data/filter change
+  useEffect(() => {
+    updateWildfireSource();
+  }, [wildfires, brightnessFilter, confidenceFilter]);
+
+  // 4) move “Me” on location change
+  useEffect(() => {
+    updateUserSource();
+  }, [userLocation]);
+
+  // 5) **debounced** nearby‐fires
+  useEffect(() => {
+    if (!onNearbyFiresUpdate) return;
+    // wait 500ms after last range change:
+    const t = setTimeout(async () => {
+      if (!userLocation || wildfires.length === 0 || range <= 0) {
+        onNearbyFiresUpdate([]);
+        return;
+      }
+      const inRange = wildfires
+        .map(f => {
+          const d = haversineDistance(
+            userLocation.lat, userLocation.lng,
+            f.latitude, f.longitude
+          );
+          return {
+            ...f,
+            distance: d,
+            brightnessCat: getBrightnessCategory(f.brightness),
+            confidenceCat: getConfidenceCategory(f.confidence)
+          };
+        })
+        .filter(f => f.distance <= range)
+        .sort((a,b) => a.distance - b.distance)
+        .slice(0,10);
+
+      // reverse-geocode in parallel
+      const enriched = await Promise.all(inRange.map(async f => ({
+        cityName: await reverseGeocode(f.latitude, f.longitude, mapboxgl.accessToken),
+        distance: f.distance,
+        brightnessCat: f.brightnessCat,
+        confidenceCat: f.confidenceCat
+      })));
+      onNearbyFiresUpdate(enriched);
+    }, 500);
+
+    return () => clearTimeout(t);
+  }, [userLocation, range, wildfires, onNearbyFiresUpdate]);
+
+  return (
+    <div
+      ref={mapContainerRef}
+      style={{ width:'100%', height:'100%', position:'relative' }}
+    />
+  );
+});
 
 export default MapComponent;

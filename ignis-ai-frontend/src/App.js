@@ -1,8 +1,8 @@
 // src/App.js
 import React, { useRef, useState } from 'react';
 import './App.css';
-import Header from './components/Header'; // optional
-import Footer from './components/Footer'; // optional
+import Header from './components/Header';
+import Footer from './components/Footer';
 import MapComponent from './components/MapComponent';
 import FireControls from './components/FireControls';
 
@@ -13,10 +13,14 @@ function App() {
   const [confidenceFilter, setConfidenceFilter] = useState('');
   const [fireCount, setFireCount] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
-  
-
-  //map style toggle:
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/streets-v12');
+
+  // user location + range
+  const [userLocation, setUserLocation] = useState(null);
+  const [range, setRange] = useState(20);
+
+  // store array of nearby fires
+  const [nearbyFires, setNearbyFires] = useState([]);
 
   const handleRefresh = () => {
     if (mapRef.current && mapRef.current.refreshWildfires) {
@@ -28,13 +32,15 @@ function App() {
     setFireCount(count);
   };
 
+  // called by MapComponent with enriched "nearby fires"
+  const handleNearbyFiresUpdate = (fires) => {
+    setNearbyFires(fires);
+  };
+
   return (
     <div style={styles.appContainer}>
       <Header />
-
-      {/* Main Content = map area */}
       <div style={styles.mapContainer}>
-
         <MapComponent
           ref={mapRef}
           brightnessFilter={brightnessFilter}
@@ -42,19 +48,27 @@ function App() {
           onFiresUpdated={handleFiresUpdated}
           setIsFetching={setIsFetching}
           mapStyle={mapStyle}
+          userLocation={userLocation}
+          range={range}
+          onNearbyFiresUpdate={handleNearbyFiresUpdate}
         />
 
-        {/* Our floating panel on the left */}
         <FireControls
           onRefresh={handleRefresh}
           isFetching={isFetching}
           fireCount={fireCount}
           onChangeBrightness={setBrightnessFilter}
           onChangeConfidence={setConfidenceFilter}
-          onChangeMapStyle={setMapStyle}  // only if you want style toggling
+          onChangeMapStyle={setMapStyle}
+
+          mapboxToken={process.env.REACT_APP_MAPBOX_TOKEN}
+          onSelectLocation={setUserLocation}
+
+          range={range}
+          onChangeRange={setRange}
+          nearbyFires={nearbyFires}
         />
       </div>
-
       <Footer />
     </div>
   );
