@@ -1,70 +1,173 @@
-# Getting Started with Create React App
+# Ignis AI - Complete Setup Guide
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Welcome! This guide will walk you through setting up Ignis AI from scratch on a fresh machine.
 
-## Available Scripts
+## 1. Install Node.js & npm
 
-In the project directory, you can run:
+- Go to [https://nodejs.org](https://nodejs.org) and download the **LTS installer** for your OS (Windows/macOS/Linux).
+- Run the installer and accept all default settings.
+- Verify installation in a terminal:
 
-### `npm start`
+```bash
+node --version   # Should print v16.x or higher
+npm --version
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 2. Choose & Provision MongoDB
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+You have two main options:
 
-### `npm test`
+### A. Local MongoDB Community Server
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+**macOS (Homebrew)**
 
-### `npm run build`
+```bash
+brew tap mongodb/brew
+brew install mongodb-community@6.0
+brew services start mongodb-community@6.0
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+To stop MongoDB:
+```bash
+brew services stop mongodb-community@6.0
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+To run manually:
+```bash
+mongod
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+**Windows**
 
-### `npm run eject`
+- Download the MSI installer from [MongoDB Community Edition](https://www.mongodb.com/try/download/community).
+- During installation, select **"Run as a Service"**.
+- MongoDB will start automatically. You can manage it via **Services.app**.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+**Linux (Ubuntu/Debian)**
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+sudo apt update
+sudo apt install -y mongodb
+sudo systemctl enable mongodb
+sudo systemctl start mongodb
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+**Verify MongoDB installation:**
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+mongo --eval "db.runCommand({ connectionStatus: 1 })"
+```
+You should see `ok: 1`.
 
-## Learn More
+### B. MongoDB Atlas (Cloud)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- Go to [https://cloud.mongodb.com](https://cloud.mongodb.com) and sign up.
+- Create a **Project** and **Build a Cluster** (choose **Free Tier M0**).
+- In **Network Access**, add your IP address (or allow access from anywhere).
+- In **Database Access**, create a user and password.
+- Click **Connect** → **Connect your application** → Copy the connection string:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+mongodb+srv://<username>:<password>@cluster0.abcd.mongodb.net/ignisai?retryWrites=true&w=majority
+```
 
-### Code Splitting
+## 3. Clone the Repository
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+In your terminal:
 
-### Analyzing the Bundle Size
+```bash
+git clone https://github.com/your-org/ignis-ai.git
+cd ignis-ai
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+You should see two folders:
+- `ignis-ai-backend`
+- `ignis-ai-frontend`
 
-### Making a Progressive Web App
+## 4. Backend Setup (Node.js + Express + MongoDB)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Install backend dependencies:
 
-### Advanced Configuration
+```bash
+cd ignis-ai-backend
+npm install
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Create your environment file:
 
-### Deployment
+```bash
+cp .env.example .env
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Edit `.env` and fill in the details:
 
-### `npm run build` fails to minify
+```ini
+PORT=5000
+MONGO_URI=<your MongoDB URI>
+NASA_API_KEY=<your NASA FIRMS API key>
+MAPBOX_ACCESS_TOKEN=<your Mapbox secret token>
+HUMAN_FACTORS_API=<optional: human factors API>
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+**Start MongoDB** (if using local):
+
+- **macOS:**
+
+```bash
+brew services start mongodb-community@6.0
+```
+
+- **Windows:** Already running as a service.
+- **Linux:**
+
+```bash
+sudo systemctl start mongodb
+```
+
+**Start the backend server:**
+
+```bash
+npm start
+```
+
+You should see logs confirming that the server is running on port 5000 and MongoDB is connected.
+
+## 5. Frontend Setup (React + Mapbox GL)
+
+In a new terminal window/tab:
+
+```bash
+cd ../ignis-ai-frontend
+npm install
+```
+
+Create the React environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in:
+
+```ini
+REACT_APP_MAPBOX_TOKEN=<your Mapbox public token>
+```
+
+Start the React development server:
+
+```bash
+npm start
+```
+
+It will open `http://localhost:3000` in your browser.
+
+API calls are automatically proxied to `http://localhost:5000/api`.
+
+## 6. Verify Everything
+
+- **Backend:** Open [http://localhost:5000/api/wildfires](http://localhost:5000/api/wildfires) → Should display JSON data.
+- **Frontend:** Open [http://localhost:3000](http://localhost:3000) → Map should load and display markers.
+
+---
+
+🎉 Congratulations! You now have a complete Ignis AI development environment running locally.
