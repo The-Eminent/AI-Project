@@ -1,4 +1,3 @@
-// src/components/MapComponent.js
 import React, {
   useEffect,
   useRef,
@@ -28,22 +27,37 @@ function getConfidenceCategory(cStr) {
   if (v >= 0.3) return 'Medium';
   return 'Low';
 }
+function getSeverityIcon(cat) {
+  if (cat === 'Extreme') return '🔥🔥🔥';
+  if (cat === 'Severe')  return '🔴🔥';
+  if (cat === 'Moderate') return '⚠️';
+  return '🌡️';
+}
+function getConfidencePercent(cat) {
+  switch (cat) {
+    case 'Low':       return 33;
+    case 'Medium':    return 66;
+    case 'High':      return 90;
+    case 'Very High': return 100;
+    default:          return 0;
+  }
+}
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
-    Math.sin(dLat/2)**2 +
-    Math.cos((lat1*Math.PI)/180) *
-    Math.cos((lat2*Math.PI)/180) *
-    Math.sin(dLon/2)**2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R_EARTH * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 async function reverseGeocode(lat, lon, token) {
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${token}&limit=1`;
     const resp = await fetch(url);
-    const json = await resp.json();
-    return json.features?.[0]?.place_name || 'Unknown';
+    const { features } = await resp.json();
+    return features?.[0]?.place_name || 'Unknown';
   } catch {
     return 'Unknown';
   }
@@ -60,11 +74,11 @@ const MapComponent = forwardRef(({
   onNearbyFiresUpdate
 }, ref) => {
   const mapContainerRef = useRef();
-  const mapRef = useRef();
+  const mapRef          = useRef();
   const clickHandlerRef = useRef();
   const [wildfires, setWildfires] = useState([]);
 
-  // fetch + cache
+  // Fetch & cache data
   const fetchWildfires = async () => {
     setIsFetching(true);
     try {
@@ -79,7 +93,7 @@ const MapComponent = forwardRef(({
   };
   useImperativeHandle(ref, () => ({ refreshWildfires: fetchWildfires }), []);
 
-  // update wildfire layer
+  // Update wildfire layer source
   const updateWildfireSource = (dataArray = wildfires) => {
     const map = mapRef.current;
     if (!map) return;
@@ -106,7 +120,7 @@ const MapComponent = forwardRef(({
     });
   };
 
-  // update user marker
+  // Update user location marker
   const updateUserSource = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -129,72 +143,84 @@ const MapComponent = forwardRef(({
     map.setZoom(z);
   };
 
-  // set up layers + click handler
+  // Create sources/layers + click handler
   const setupLayers = () => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Wildfire layer
-    if (map.getLayer('wildfires-layer')) map.removeLayer('wildfires-layer');
+    // Wildfires
+    if (map.getLayer('wildfires-layer'))  map.removeLayer('wildfires-layer');
     if (map.getSource('wildfires-source')) map.removeSource('wildfires-source');
-    map.addSource('wildfires-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addSource('wildfires-source', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
     map.addLayer({
       id: 'wildfires-layer',
       type: 'circle',
       source: 'wildfires-source',
       paint: {
-        'circle-radius': 4,
-        'circle-color': '#FF4500',
-        'circle-stroke-width': 1,
-        'circle-stroke-color': '#fff'
+        'circle-radius':        4,
+        'circle-color':         '#FF4500',
+        'circle-stroke-width':  1,
+        'circle-stroke-color':  '#fff'
       }
     });
+
     // Click handler
     if (clickHandlerRef.current) {
       map.off('click','wildfires-layer', clickHandlerRef.current);
     }
-    clickHandlerRef.current = (e) => {
+    clickHandlerRef.current = async e => {
       const f = e.features[0];
       if (!f) return;
       const { brightnessCat, confidenceCat, timestamp } = f.properties;
       const coords = f.geometry.coordinates;
       const timeStr = timestamp ? new Date(timestamp).toLocaleString() : 'Unknown';
+      const address = await reverseGeocode(coords[1], coords[0], mapboxgl.accessToken);
+      const icon    = getSeverityIcon(brightnessCat);
+      const pct     = getConfidencePercent(confidenceCat);
+
       new mapboxgl.Popup()
         .setLngLat(coords)
         .setHTML(`
           <div class="wildfire-popup">
-            <h4>${brightnessCat} Fire</h4>
-            <p><strong>Confidence:</strong> ${confidenceCat}</p>
-            <p><strong>Detected at:</strong> ${timeStr}</p>
+            <h4>${icon} ${brightnessCat} Fire</h4>
+            <p><strong>Address:</strong> ${address}</p>
+            <p><strong>Confidence:</strong> ${pct}%</p>
+            <p><strong>Captured at:</strong> ${timeStr}</p>
           </div>`)
         .addTo(map);
     };
     map.on('click','wildfires-layer', clickHandlerRef.current);
 
-    // User layer
-    if (map.getLayer('user-layer')) map.removeLayer('user-layer');
+    // User marker
+    if (map.getLayer('user-layer'))  map.removeLayer('user-layer');
     if (map.getSource('user-source')) map.removeSource('user-source');
-    map.addSource('user-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addSource('user-source', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
     map.addLayer({
       id: 'user-layer',
       type: 'circle',
       source: 'user-source',
       paint: {
-        'circle-radius': 6,
-        'circle-color': '#1E90FF',
+        'circle-radius':       6,
+        'circle-color':        '#1E90FF',
         'circle-stroke-width': 2,
         'circle-stroke-color': '#fff'
       }
     });
   };
 
-  // 1) initialize map
+  // 1) Initialize map once
   useEffect(() => {
     const m = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: mapStyle,
-      center: [-98, 38],
-      zoom: 4,
+      style:     mapStyle,
+      center:    [-98, 38],
+      zoom:      4,
       maxBounds: [[-130,22],[-66,50]]
     });
     m.addControl(new mapboxgl.NavigationControl());
@@ -210,7 +236,7 @@ const MapComponent = forwardRef(({
     return () => m.remove();
   }, []);
 
-  // 2) on style change
+  // 2) Reapply on style change
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -222,20 +248,19 @@ const MapComponent = forwardRef(({
     });
   }, [mapStyle]);
 
-  // 3) redraw on data/filter change
+  // 3) Update when filters or data change
   useEffect(() => {
     updateWildfireSource();
   }, [wildfires, brightnessFilter, confidenceFilter]);
 
-  // 4) move “Me” on location change
+  // 4) Update user marker on location change
   useEffect(() => {
     updateUserSource();
   }, [userLocation]);
 
-  // 5) **debounced** nearby‐fires
+  // 5) Compute & send ALL in-range fires (no pre-sorting/slicing)
   useEffect(() => {
     if (!onNearbyFiresUpdate) return;
-    // wait 500ms after last range change:
     const t = setTimeout(async () => {
       if (!userLocation || wildfires.length === 0 || range <= 0) {
         onNearbyFiresUpdate([]);
@@ -249,22 +274,22 @@ const MapComponent = forwardRef(({
           );
           return {
             ...f,
-            distance: d,
+            distance:      d,
             brightnessCat: getBrightnessCategory(f.brightness),
             confidenceCat: getConfidenceCategory(f.confidence)
           };
         })
-        .filter(f => f.distance <= range)
-        .sort((a,b) => a.distance - b.distance)
-        .slice(0,10);
+        .filter(f => f.distance <= range);
 
-      // reverse-geocode in parallel
-      const enriched = await Promise.all(inRange.map(async f => ({
-        cityName: await reverseGeocode(f.latitude, f.longitude, mapboxgl.accessToken),
-        distance: f.distance,
-        brightnessCat: f.brightnessCat,
-        confidenceCat: f.confidenceCat
-      })));
+      const enriched = await Promise.all(
+        inRange.map(async f => ({
+          cityName:      await reverseGeocode(f.latitude, f.longitude, mapboxgl.accessToken),
+          distance:      f.distance,
+          brightnessCat: f.brightnessCat,
+          confidenceCat: f.confidenceCat
+        }))
+      );
+
       onNearbyFiresUpdate(enriched);
     }, 500);
 
@@ -274,7 +299,7 @@ const MapComponent = forwardRef(({
   return (
     <div
       ref={mapContainerRef}
-      style={{ width:'100%', height:'100%', position:'relative' }}
+      style={{ width: '100%', height: '100%', position: 'relative' }}
     />
   );
 });
