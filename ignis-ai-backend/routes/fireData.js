@@ -1,73 +1,88 @@
-//ignis-ai-backend/routes/fireData.js
+// ignis-ai-backend/routes/fireData.js
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
-const mongoose = require('mongoose');
-const Wildfire = require('../models/Wildfire'); // Import MongoDB Model
-const Weather = require('../models/Weather'); // Import Weather Model
+const axios  = require('axios');
+const Wildfire = require('../models/Wildfire');
 require('dotenv').config();
 
-// Function to parse CSV data into JSON safely
-const parseCSV = (csvData) => {
-  const rows = csvData.split("\n").slice(1); // Remove header row
-  const wildfireData = [];
+// Parse the 14-col “area” CSV from FIRMS into objects
+function parseCSV(csvText) {
+  const lines = csvText.trim().split('\n');
+  const dataLines = lines.slice(1);            // drop header
 
-  for (const row of rows) {
-    const cols = row.split(",");
+  return dataLines
+    .map(line => {
+      const cols = line.split(',');
+      if (cols.length < 14) return null;       // malformed row
 
-    // Ensure we have at least the required fields
-    if (cols.length >= 5) {
-      wildfireData.push({
-        latitude: parseFloat(cols[0]),
-        longitude: parseFloat(cols[1]),
-        brightness: parseFloat(cols[2]),
-        confidence: cols[3], // Keep confidence as a string to avoid parsing issues
-        satellite: cols[4],
-        timestamp: cols[5] ? new Date(cols[5]) : new Date() // Use API timestamp if available
-      });
-    }
-  }
-  return wildfireData;
-};
+      // Column ordering: latitude,longitude,bright_ti4,scan,track,
+      //                 acq_date,acq_time,satellite,instrument,
+      //                 confidence,version,bright_ti5,frp,daynight
+      const [
+        lat, lon, brightTi4, scan, track,
+        acq_date, acq_time,
+        satellite, instrument,
+        confidence, version,
+        brightTi5, frp, daynight
+      ] = cols;
 
-// **Fetch NASA FIRMS Data**
+      // build ISO timestamp: “YYYY-MM-DDTHH:MM:00Z”
+      const hhmm = acq_time.padStart(4, '0');
+      const iso = `${acq_date}T${hhmm.slice(0,2)}:${hhmm.slice(2)}:00Z`;
+
+      return {
+        latitude:   parseFloat(lat),
+        longitude:  parseFloat(lon),
+        brightness: parseFloat(brightTi4),
+        confidence: cols[3],                  // stored as string (e.g. "0.78")
+        satellite,
+        timestamp:  new Date(iso)
+      };
+    })
+    .filter(f =>
+      f &&
+      !isNaN(f.latitude) &&
+      !isNaN(f.longitude) &&
+      !isNaN(f.brightness) &&
+      f.timestamp.toString() !== 'Invalid Date'
+    );
+}
+
 router.get('/wildfires', async (req, res) => {
   try {
-    const nasaFirmsURL = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${process.env.NASA_API_KEY}/VIIRS_SNPP_NRT/-125.0,24.0,-66.0,49.0/2`;
+    const url = [
+      'https://firms.modaps.eosdis.nasa.gov/api/area/csv',
+      process.env.NASA_API_KEY,
+      'VIIRS_NOAA21_NRT',
+      '-125.0,24.0,-66.0,49.0',
+      '2'
+    ].join('/');
 
-    console.log(`Fetching data from: ${nasaFirmsURL}`);
-
-    // Fetch NASA FIRMS Data
-    const response = await axios.get(nasaFirmsURL, {
+    console.log(`Fetching FIRMS area data from:\n  ${url}`);
+    const { data: csvText } = await axios.get(url, {
       headers: { 'User-Agent': 'ignis-ai (chrisjuarez1596@gmail.com)' },
-      responseType: 'text' // Ensure CSV is received as plain text
+      responseType: 'text'
     });
 
-    if (!response.data) {
-      console.error("❌ No data received from NASA FIRMS API");
-      return res.status(500).json({ error: "No data received from NASA FIRMS API" });
+    const fires = parseCSV(csvText);
+    if (fires.length === 0) {
+      console.log('⚠️  No valid wildfire rows parsed.');
+      return res.json({ message: 'No valid fire data', count: 0, data: [] });
     }
 
-    // Parse CSV Data
-    const wildfireData = parseCSV(response.data);
-
-    // Store in MongoDB only if data is valid
-    if (wildfireData.length > 0) {
-      await Wildfire.insertMany(wildfireData);
-      console.log(`🔥 ${wildfireData.length} wildfire records saved to MongoDB.`);
-    } else {
-      console.log("⚠️ No valid wildfire data to save.");
-    }
+    // insertMany will bulk‐insert all your clean objects
+    const inserted = await Wildfire.insertMany(fires);
+    console.log(`🔥  Inserted ${inserted.length} wildfires`);
 
     res.json({
-      message: 'NASA FIRMS wildfire data fetched and stored successfully',
-      count: wildfireData.length,
-      data: wildfireData
+      message: 'Wildfire data fetched & stored',
+      count: inserted.length,
+      data: inserted
     });
 
-  } catch (error) {
-    console.error('❌ Error fetching wildfire data:', error.message);
-    res.status(500).json({ error: 'Failed to fetch wildfire data', details: error.message });
+  } catch (err) {
+    console.error('❌ Error fetching wildfire data:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

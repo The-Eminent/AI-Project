@@ -30,7 +30,7 @@ function FireControls({
   const [sortClosest, setSortClosest]     = useState(true);
   const [sortDangerous, setSortDangerous] = useState(false);
 
-  // fade‐out banner
+  // fade-out banner
   useEffect(() => {
     if (fireCount !== null) {
       setShowCount(true);
@@ -143,14 +143,13 @@ function FireControls({
       });
     } else if (sortClosest && sortDangerous) {
       // combined score: 50% normalized severity + 50% normalized inverse distance
-      // normalize severity (1–4 → 0–1), and distance inverted by maxDist
       const maxDist = Math.max(...list.map(f => f.distance), 1);
       list = list.map(f => {
-        const sevNorm = (getSeverityRank(f.brightnessCat) - 1) / 3; // 0–1
-        const invDist  = (maxDist - f.distance) / maxDist;         // 0–1
-        return { 
-          ...f, 
-          score: sevNorm * 0.5 + invDist * 0.5 
+        const sevNorm = (getSeverityRank(f.brightnessCat) - 1) / 3;
+        const invDist  = (maxDist - f.distance) / maxDist;
+        return {
+          ...f,
+          score: sevNorm * 0.5 + invDist * 0.5
         };
       });
       list.sort((a, b) => b.score - a.score);
@@ -283,7 +282,7 @@ function FireControls({
 
           {displayedFires.length > 0 && (
             <div style={styles.nearbyList}>
-              <h4>Nearby Fires</h4>
+              <h4 style={{ margin: 0, marginBottom: 10 }}>Nearby Fires</h4>
               <div style={styles.fireListContainer}>
                 <ul style={styles.fireList}>
                   {displayedFires.map((f, idx) => (
