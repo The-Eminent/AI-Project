@@ -15,22 +15,17 @@ function FireControls({
   nearbyFires
 }) {
   const [showCount, setShowCount] = useState(false);
-
-  // geocode
-  const [query, setQuery]               = useState('');
-  const [suggestions, setSuggestions]   = useState([]);
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef(null);
   const skipNextFetch = useRef(false);
 
-  // panel toggle
   const [isOpen, setIsOpen] = useState(true);
-
-  // sorting toggles
-  const [sortClosest, setSortClosest]     = useState(true);
+  const [sortClosest, setSortClosest] = useState(true);
   const [sortDangerous, setSortDangerous] = useState(false);
 
-  // fade-out banner
+  // flash the “Displaying X fires” banner
   useEffect(() => {
     if (fireCount !== null) {
       setShowCount(true);
@@ -39,7 +34,7 @@ function FireControls({
     }
   }, [fireCount]);
 
-  // debounced geocode
+  // debounced geocoding
   useEffect(() => {
     if (skipNextFetch.current) {
       skipNextFetch.current = false;
@@ -54,7 +49,7 @@ function FireControls({
     return () => clearTimeout(debounceRef.current);
   }, [query]);
 
-  const fetchGeocoding = async text => {
+  async function fetchGeocoding(text) {
     if (!mapboxToken) return;
     try {
       const resp = await fetch(
@@ -68,18 +63,18 @@ function FireControls({
     } catch {
       setSuggestions([]);
     }
-  };
+  }
 
-  const handleSelectSuggestion = feat => {
+  function handleSelectSuggestion(feat) {
     skipNextFetch.current = true;
     const [lng, lat] = feat.center;
     onSelectLocation?.({ lat, lng });
     setQuery(feat.place_name);
     setShowSuggestions(false);
     setSuggestions([]);
-  };
+  }
 
-  const handleUseMyLocation = () => {
+  function handleUseMyLocation() {
     if (!navigator.geolocation) {
       alert('Geolocation not supported.');
       return;
@@ -97,15 +92,14 @@ function FireControls({
       },
       () => alert('Unable to retrieve location.')
     );
-  };
+  }
 
-  const handleRangeChange = e => {
+  function handleRangeChange(e) {
     const val = e.target.value;
     onChangeRange?.(val === '' ? 0 : parseFloat(val));
-  };
+  }
 
-  // map confidence category to percentage
-  const getConfidencePercent = cat => {
+  function getConfidencePercent(cat) {
     switch (cat) {
       case 'Low':       return 33;
       case 'Medium':    return 66;
@@ -113,65 +107,77 @@ function FireControls({
       case 'Very High': return 100;
       default:          return 0;
     }
-  };
+  }
 
-  // map brightness category to severity rank
-  const getSeverityRank = cat => {
+  function getSeverityRank(cat) {
     switch (cat) {
-      case 'Extreme': return 4;
-      case 'Severe':  return 3;
-      case 'Moderate':return 2;
-      case 'Small':   return 1;
-      default:        return 0;
+      case 'Extreme':   return 4;
+      case 'Severe':    return 3;
+      case 'Moderate':  return 2;
+      case 'Small':     return 1;
+      default:          return 0;
     }
-  };
+  }
 
-  // decide which 10 to display based on checkboxes
   const displayedFires = useMemo(() => {
     let list = [...nearbyFires];
-
     if (sortClosest && !sortDangerous) {
-      // pure distance
       list.sort((a, b) => a.distance - b.distance);
     } else if (!sortClosest && sortDangerous) {
-      // pure “danger” → severity first, then confidence
       list.sort((a, b) => {
-        const srA = getSeverityRank(a.brightnessCat);
         const srB = getSeverityRank(b.brightnessCat);
+        const srA = getSeverityRank(a.brightnessCat);
         if (srB !== srA) return srB - srA;
-        return getConfidencePercent(b.confidenceCat) - getConfidencePercent(a.confidenceCat);
+        return (
+          getConfidencePercent(b.confidenceCat) -
+          getConfidencePercent(a.confidenceCat)
+        );
       });
     } else if (sortClosest && sortDangerous) {
-      // combined score: 50% normalized severity + 50% normalized inverse distance
       const maxDist = Math.max(...list.map(f => f.distance), 1);
-      list = list.map(f => {
-        const sevNorm = (getSeverityRank(f.brightnessCat) - 1) / 3;
-        const invDist  = (maxDist - f.distance) / maxDist;
-        return {
-          ...f,
-          score: sevNorm * 0.5 + invDist * 0.5
-        };
-      });
-      list.sort((a, b) => b.score - a.score);
+      list = list
+        .map(f => {
+          const sevNorm = (getSeverityRank(f.brightnessCat) - 1) / 3;
+          const invDist  = (maxDist - f.distance) / maxDist;
+          return { ...f, score: sevNorm * 0.5 + invDist * 0.5 };
+        })
+        .sort((a, b) => b.score - a.score);
     } else {
-      // neither checked → fallback to distance
       list.sort((a, b) => a.distance - b.distance);
     }
-
     return list.slice(0, 10);
   }, [nearbyFires, sortClosest, sortDangerous]);
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        position: 'absolute',
+        top: '1rem',
+        left: '1rem',
+        width: '260px',
+        backgroundColor: '#ffffffcc',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        fontFamily: 'sans-serif',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        bottom: isOpen ? '1rem' : undefined,
+        height: isOpen ? undefined : 40
+      }}
+    >
       <div style={styles.topBar}>
-        <button style={styles.toggleBtn} onClick={() => setIsOpen(o => !o)}>
+        <button
+          style={styles.toggleBtn}
+          onClick={() => setIsOpen(o => !o)}
+        >
           {isOpen ? '▼' : '▲'}
         </button>
         <h3 style={styles.title}>Wildfire Controls</h3>
       </div>
 
       {isOpen && (
-        <div style={{ padding: '1rem' }}>
+        <div style={styles.content}>
           <button
             style={styles.input}
             onClick={onRefresh}
@@ -217,9 +223,15 @@ function FireControls({
                 style={styles.input}
                 onChange={e => onChangeMapStyle(e.target.value)}
               >
-                <option value="mapbox://styles/mapbox/streets-v12">Streets</option>
-                <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors</option>
-                <option value="mapbox://styles/mapbox/satellite-streets-v12">Satellite</option>
+                <option value="mapbox://styles/mapbox/streets-v12">
+                  Streets
+                </option>
+                <option value="mapbox://styles/mapbox/outdoors-v12">
+                  Outdoors
+                </option>
+                <option value="mapbox://styles/mapbox/satellite-streets-v12">
+                  Satellite
+                </option>
                 <option value="mapbox://styles/mapbox/light-v10">Light</option>
                 <option value="mapbox://styles/mapbox/dark-v10">Dark</option>
               </select>
@@ -233,9 +245,11 @@ function FireControls({
             placeholder="Enter city or postal code..."
             value={query}
             onChange={e => setQuery(e.target.value)}
-            onFocus={() => suggestions.length && setShowSuggestions(true)}
+            onFocus={() =>
+              suggestions.length && setShowSuggestions(true)
+            }
           />
-          {showSuggestions && suggestions.length > 0 && (
+          {showSuggestions && (
             <ul style={styles.suggestionList}>
               {suggestions.map(feat => (
                 <li
@@ -249,11 +263,16 @@ function FireControls({
             </ul>
           )}
 
-          <button style={styles.input} onClick={handleUseMyLocation}>
+          <button
+            style={styles.input}
+            onClick={handleUseMyLocation}
+          >
             Use My Location
           </button>
 
-          <label style={styles.label}>Nearby Fire Range (miles):</label>
+          <label style={styles.label}>
+            Nearby Fire Range (miles):
+          </label>
           <input
             type="number"
             style={styles.input}
@@ -282,15 +301,21 @@ function FireControls({
 
           {displayedFires.length > 0 && (
             <div style={styles.nearbyList}>
-              <h4 style={{ margin: 0, marginBottom: 10 }}>Nearby Fires</h4>
+              <h4 style={{ margin: 0, marginBottom: 10 }}>
+                Nearby Fires
+              </h4>
               <div style={styles.fireListContainer}>
                 <ul style={styles.fireList}>
                   {displayedFires.map((f, idx) => (
                     <li key={idx} style={styles.fireItem}>
-                      <strong>{idx + 1}. {f.cityName}</strong><br/>
+                      <strong>
+                        {idx + 1}. {f.cityName}
+                      </strong>
+                      <br />
                       <span style={{ color: 'red' }}>
                         {f.distance.toFixed(1)} miles away
-                      </span><br/>
+                      </span>
+                      <br />
                       <span style={{ color: 'darkblue' }}>
                         {f.brightnessCat} Fire, {f.confidenceCat} Confidence
                       </span>
@@ -307,18 +332,6 @@ function FireControls({
 }
 
 const styles = {
-  container: {
-    position: 'absolute',
-    top: '1rem',
-    left: '1rem',
-    zIndex: 999,
-    width: '260px',
-    backgroundColor: '#ffffffcc',
-    borderRadius: '8px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-    fontFamily: 'sans-serif',
-    overflow: 'hidden'
-  },
   topBar: {
     height: 40,
     background: '#eee',
@@ -337,13 +350,24 @@ const styles = {
     height: 30
   },
   title: { margin: 0, fontSize: '1rem' },
-  subHeader: { margin: '0.5rem 0 0.25rem', fontSize: '1rem' },
+  content: {
+    flex: 1,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '1rem'
+  },
   input: {
     width: '100%',
     padding: '0.4rem',
     fontSize: '0.9rem',
     marginBottom: '0.5rem',
     cursor: 'pointer'
+  },
+  label: {
+    fontWeight: 'bold',
+    marginBottom: '0.25rem',
+    display: 'block'
   },
   countBox: {
     marginBottom: '0.5rem',
@@ -353,11 +377,7 @@ const styles = {
     borderRadius: '4px',
     fontSize: '0.9rem'
   },
-  label: {
-    fontWeight: 'bold',
-    marginBottom: '0.25rem',
-    display: 'block'
-  },
+  subHeader: { margin: '0.5rem 0 0.25rem', fontSize: '1rem' },
   suggestionList: {
     listStyle: 'none',
     margin: 0,
@@ -375,14 +395,16 @@ const styles = {
   },
   sortControls: { margin: '0.5rem 0', fontSize: '0.9rem' },
   nearbyList: {
-    marginTop: '0.5rem',
     backgroundColor: '#f9f9f9',
     padding: '0.5rem',
-    borderRadius: '4px'
+    borderRadius: '4px',
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1
   },
   fireListContainer: {
-    maxHeight: '100px',
-    overflowY: 'auto'
+    overflowY: 'auto',
+    flex: 1
   },
   fireList: {
     margin: 0,
