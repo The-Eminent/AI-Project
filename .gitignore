@@ -8,6 +8,14 @@ node_modules/
 .pnp
 .pnp.js
 
+# Python virtual environment
+venv/
+ml/venv/
+
+# Byte‑compiled / cache
+__pycache__/
+*.py[cod]
+
 # Build files
 build/
 dist/
