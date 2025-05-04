@@ -5,3 +5,13 @@ const api = axios.create({
 });
 
 export const getWildfireData = () => api.get('/wildfires');
+
+export const predictFireSpread = async (fireData) => {
+  try {
+    const response = await api.post('/predict-fire-spread', fireData);
+    return response.data;
+  } catch (error) {
+    console.error('Error predicting fire spread:', error);
+    throw error;
+  }
+};

@@ -21,6 +21,10 @@ function App() {
 
   // store array of nearby fires
   const [nearbyFires, setNearbyFires] = useState([]);
+  
+  // fire prediction state
+  const [selectedFire, setSelectedFire] = useState(null);
+  const [firePrediction, setFirePrediction] = useState(null);
 
   const handleRefresh = () => {
     if (mapRef.current && mapRef.current.refreshWildfires) {
@@ -37,6 +41,18 @@ function App() {
     setNearbyFires(fires);
   };
 
+  // handle fire selection
+  const handleFireSelect = (fire) => {
+    setSelectedFire(fire);
+    // Clear any existing prediction when a new fire is selected
+    setFirePrediction(null);
+  };
+  
+  // handle fire spread prediction
+  const handleFireSpreadPrediction = (prediction) => {
+    setFirePrediction(prediction);
+  };
+
   return (
     <div style={styles.appContainer}>
       <Header />
@@ -51,6 +67,10 @@ function App() {
           userLocation={userLocation}
           range={range}
           onNearbyFiresUpdate={handleNearbyFiresUpdate}
+          selectedFire={selectedFire}
+          onFireSelect={handleFireSelect}
+          firePrediction={firePrediction}
+          onFireSpreadPrediction={handleFireSpreadPrediction}
         />
 
         <FireControls
@@ -60,13 +80,12 @@ function App() {
           onChangeBrightness={setBrightnessFilter}
           onChangeConfidence={setConfidenceFilter}
           onChangeMapStyle={setMapStyle}
-
           mapboxToken={process.env.REACT_APP_MAPBOX_TOKEN}
           onSelectLocation={setUserLocation}
-
           range={range}
           onChangeRange={setRange}
           nearbyFires={nearbyFires}
+          selectedFire={selectedFire}
         />
       </div>
       <Footer />

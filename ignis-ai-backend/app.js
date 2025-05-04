@@ -2,7 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./db'); // Import database connection
+const connectDB = require('./db'); 
 
 dotenv.config();
 
@@ -23,11 +23,13 @@ const fireDataRoutes = require('./routes/fireData'); // Fire Data
 const weatherRoutes = require('./routes/weather'); // Ensure this is imported
 const topographyRoutes = require('./routes/topography'); // Topography Data
 const humanFactorsRoutes = require('./routes/humanFactors'); // Human Factors Data
+const predictFireSpreadRouter = require('./routes/predictFireSpread');
 
 app.use('/api', fireDataRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/topography', topographyRoutes);
 app.use('/api/human-factors', humanFactorsRoutes);
+app.use('/api/predict-fire-spread', predictFireSpreadRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

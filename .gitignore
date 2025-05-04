@@ -12,6 +12,10 @@ node_modules/
 venv/
 ml/venv/
 
+# ignore ML outputs & raw data
+**ml/*.npy
+**/ml/data/*.tfrecord
+
 # Byte‑compiled / cache
 __pycache__/
 *.py[cod]
@@ -32,3 +36,9 @@ thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+ignis-ai-backend/ml/processed_y_train_class.npy
+ignis-ai-backend/ml/processed_y_train_regress.npy
+ignis-ai-backend/ml/processed_y_test_regress.npy
+ignis-ai-backend/ml/processed_y_test_class.npy
+ignis-ai-backend/ml/processed_X_test.npy
+ignis-ai-backend/ml/processed_X_train.npy
