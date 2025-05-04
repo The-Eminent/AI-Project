@@ -19,8 +19,83 @@ This README ensures you can spin up both services locally, on **macOS**, **Linux
    ```
 4. **MongoDB** (local or Atlas)
 
+# Ignis AI - Complete Setup & Run Guide
+
+A full-stack wildfire detection & spread prediction application using:
+- **Node.js** + Express + MongoDB for the backend API
+- **Python** for ML inference (TensorFlow + scikit-learn)
+- **React** + Mapbox GL & React-Leaflet for the frontend map
+
+This README ensures you can spin up both services locally, on **macOS**, **Linux**, or **Windows (VSCode)**, without surprises.
+
 ---
+## Prerequisites
+
+1. **Git**
+2. **Node.js** LTS **v16.x–v18.x** & **npm** (v8+)
+   ```bash
+   node --version   # expect v16.x or v18.x
+   npm --version
+   ```
+3. **Python 3.11+**
+   ```bash
+   python --version # expect 3.11.x
+   ```
+4. **MongoDB** (local or Atlas)
+
+---
+
+Before you begin, make sure you have these installed on your machine:
+
+1. **Git**
+   - macOS/Linux: usually pre-installed. If not, install via your package manager (e.g. `brew install git`).
+   - Windows: download & install from https://git-scm.com/downloads.
+
+2. **Node.js & npm**
+   - Download the **LTS** installer from https://nodejs.org and follow the prompts.
+   - Verify:
+     ```bash
+     node --version   # expect v16.x or v18.x LTS
+     npm --version    # expect v8.x+
+     ```
+
+3. **Python 3.11+**
+   - Download from https://www.python.org/downloads/ and install (ensure "Add to PATH" on Windows).
+   - Verify:
+     ```bash
+     python --version # expect 3.11.x
+     ```
+
+4. **MongoDB Community Server** (for local development)
+   - **macOS (Homebrew)**:
+     ```bash
+     brew tap mongodb/brew
+     brew install mongodb-community@6.0
+     brew services start mongodb-community@6.0
+     ```
+   - **Windows**:
+     - Download the MSI installer from https://www.mongodb.com/try/download/community and install as a service.
+   - **Linux (Ubuntu/Debian)**:
+     ```bash
+     sudo apt update
+     sudo apt install -y mongodb
+     sudo systemctl enable --now mongodb
+     ```
+   - Verify:
+     ```bash
+     mongo --eval "db.runCommand({ connectionStatus: 1 })"
+     ```
+
+5. **MongoDB Compass** (optional)
+   - GUI for MongoDB: download from https://www.mongodb.com/products/compass if you prefer a visual database explorer.
+
+---
+
 ## 1. Clone the Repo
+
+```bash
+# From any terminal (macOS/Linux/Windows PowerShell or VSCode)
+```
 
 ```bash
 # Any terminal (macOS, Linux, Windows PowerShell or VSCode)
@@ -147,3 +222,4 @@ If you want to retrain on Kaggle’s TFRecords:
 
 ---
 🎉 Your Ignis AI app is now running locally, ready to detect and predict wildfire spread with a single `npm start` for each service.
+
