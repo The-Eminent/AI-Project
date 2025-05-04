@@ -245,4 +245,4 @@ const python = 'python3';
 ```
 
 
-🎉 Your Ignis AI app is now running locally, ready to detect and predict wildfire spread with a single `npm start` for each service.
+🎉 Our Ignis AI app is now running locally, ready to detect and predict wildfire spread with a single `npm start` for each service.
