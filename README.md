@@ -226,22 +226,22 @@ Make sure the `pythonPath` used in `ignis-ai-backend/routes/predictfirespread.js
 
 🪟 **For Windows**:
 ```js
-const pythonPath = 'ml\venv\Scripts\python.exe';
+const python = 'ml\venv\Scripts\python.exe';
 ```
 
 🍎 **For macOS (with venv)**:
 ```js
-const pythonPath = 'ml/venv/bin/python3';
+const python = 'ml/venv/bin/python3';
 ```
 
 If using **system Python** (without venv):
 ```js
-const pythonPath = 'python3';
+const python = 'python3';
 ```
 
 🐧 **For Linux**:
 ```js
-const pythonPath = 'python3';
+const python = 'python3';
 ```
 
 
