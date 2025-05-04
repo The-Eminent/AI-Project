@@ -69,10 +69,6 @@ Before you begin, make sure you have these installed on your machine:
 ## 1. Clone the Repo
 
 ```bash
-# From any terminal (macOS/Linux/Windows PowerShell or VSCode)
-```
-
-```bash
 # Any terminal (macOS, Linux, Windows PowerShell or VSCode)
 git clone https://github.com/your-org/ignis-ai.git
 cd ignis-ai
