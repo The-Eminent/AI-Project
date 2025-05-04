@@ -19,32 +19,7 @@ This README ensures you can spin up both services locally, on **macOS**, **Linux
    ```
 4. **MongoDB** (local or Atlas)
 
-# Ignis AI - Complete Setup & Run Guide
-
-A full-stack wildfire detection & spread prediction application using:
-- **Node.js** + Express + MongoDB for the backend API
-- **Python** for ML inference (TensorFlow + scikit-learn)
-- **React** + Mapbox GL & React-Leaflet for the frontend map
-
-This README ensures you can spin up both services locally, on **macOS**, **Linux**, or **Windows (VSCode)**, without surprises.
-
 ---
-## Prerequisites
-
-1. **Git**
-2. **Node.js** LTS **v16.x–v18.x** & **npm** (v8+)
-   ```bash
-   node --version   # expect v16.x or v18.x
-   npm --version
-   ```
-3. **Python 3.11+**
-   ```bash
-   python --version # expect 3.11.x
-   ```
-4. **MongoDB** (local or Atlas)
-
----
-
 Before you begin, make sure you have these installed on your machine:
 
 1. **Git**
