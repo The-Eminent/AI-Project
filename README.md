@@ -1,5 +1,7 @@
 # Ignis AI - Complete Setup & Run Guide
 
+[▶️ DEMO VIDEO](https://www.awesomescreenshot.com/video/39450246?key=5a62c83e79661779a9495f62051fc3ac)
+
 Welcome! This guide will walk you through setting up Ignis AI from scratch on a fresh machine.
 
 This README ensures you can spin up both services locally, on **macOS**, **Linux**, or **Windows (VSCode)**, without surprises.
