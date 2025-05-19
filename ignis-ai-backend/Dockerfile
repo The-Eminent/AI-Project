@@ -1,26 +1,25 @@
-FROM python:3.11-slim
+# 1) Base image with Python 3.11
+FROM python:3.11-slim AS builder
 
-# install Node.js 18 (and build tools)
+# 2) Install Node.js 18
 RUN apt-get update && \
     apt-get install -y curl build-essential && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y nodejs
 
-WORKDIR /usr/src/app
+# 3) Install Python ML deps
+RUN pip install --no-cache-dir \
+      tensorflow scikit-learn pandas numpy joblib tqdm requests
 
-# Python deps
-COPY ml/requirements.txt ./ml/
-RUN pip install --no-cache-dir -r ml/requirements.txt
+# 4) Copy your entire backend + ML code
+WORKDIR /app
+COPY . /app
 
-# copy the backend + ml code
-COPY . .
-
-# Node deps
+# 5) Install Node.js deps
 RUN npm install
 
-# expose & env
-ENV PORT=5001 PYTHON_COMMAND=python3
+# 6) Expose the port your app will run on
 EXPOSE 5001
 
+# 7) Default start command
 CMD ["npm", "start"]
