@@ -14,9 +14,15 @@ connectDB(); // Ensure MongoDB is connected before running the server
 app.use(cors());
 app.use(express.json());
 
+//added for render deployment - Enable CORS for our Frontend Domain
+app.use(cors({
+  origin: 'https://ignis-ai-frontend.onrender.com'
+}));
+
 app.get('/', (req, res) => {
   res.send('Ignis AI Backend is running');
 });
+
 
 // Import API routes
 const fireDataRoutes = require('./routes/fireData'); // Fire Data
