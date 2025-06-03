@@ -17,9 +17,9 @@ You can try out IgnisAI’s live deployment here:
 
 - **Prediction Latency**  
   When you click **“Predict Fire Spread”**, the Python/ML service needs a moment to run the model and return results.  
-  Please be patient—once it finishes processing, the predicted spread visualization and data will appear automatically.
+  Please be patient- once it finishes processing, the predicted spread visualization and data will appear automatically.
 
-Welcome! This guide will walk you through setting up Ignis AI from scratch on a fresh machine.
+And now! This guide will walk you through setting up Ignis AI from scratch on a fresh machine.
 
 This README ensures you can spin up both services locally, on **macOS**, **Linux**, or **Windows (VSCode)**, without surprises.
 
