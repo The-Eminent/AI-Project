@@ -2,6 +2,23 @@
 
 [▶️ DEMO VIDEO](https://www.awesomescreenshot.com/video/39450246?key=5a62c83e79661779a9495f62051fc3ac)
 
+## Live Demo
+
+You can try out IgnisAI’s live deployment here:  
+**[https://ignis-ai-frontend.onrender.com/](https://ignis-ai-frontend.onrender.com/)**
+
+---
+
+### Please Note
+
+- **Render Free Tier “Sleep”**  
+  The backend is hosted on Render’s free plan, which means it will automatically go to sleep after about 15 minutes of inactivity.  
+  On your first visit (or after a period of no use), you may experience a short delay (10–30 seconds) while the service “wakes up.”  
+
+- **Prediction Latency**  
+  When you click **“Predict Fire Spread”**, the Python/ML service needs a moment to run the model and return results.  
+  Please be patient—once it finishes processing, the predicted spread visualization and data will appear automatically.
+
 Welcome! This guide will walk you through setting up Ignis AI from scratch on a fresh machine.
 
 This README ensures you can spin up both services locally, on **macOS**, **Linux**, or **Windows (VSCode)**, without surprises.
